@@ -79,14 +79,14 @@ impl MeteoSwissApiClient {
     const CSV_DELIMITER: u8 = b';';
 
     // Constructor
-    fn new(base_url: String) -> MeteoSwissApiClient {
+    pub fn new(base_url: String) -> MeteoSwissApiClient {
         MeteoSwissApiClient {
             base_url,
         }
     }
 
     /// Returns the last measures of the network's stations
-    fn get_last_measures(&self) -> Result<(), Box<dyn std::error::Error>> { // Result<Vec<MeasuringPoint>, Box<dyn std::error::Error>> {
+    pub fn get_last_measures(&self) -> Result<(), Box<dyn std::error::Error>> { // Result<Vec<MeasuringPoint>, Box<dyn std::error::Error>> {
         let resp = reqwest::blocking::get(&self.base_url)?;
         let status = resp.status();
         if status.is_success() {
