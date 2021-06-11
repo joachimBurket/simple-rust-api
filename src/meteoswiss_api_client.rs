@@ -2,11 +2,12 @@
 
 use serde::Deserialize;
 use csv::ReaderBuilder;
+use itertools::Itertools;
 
-/// The measures taken on a specific station at a specific time
+/// Measures taken on a specific station at a specific time
 #[derive(Debug, Deserialize)]
 pub struct MeasuringPoint {
-    // Station shortname
+    // Station abbreviation
     #[serde(rename(deserialize = "Station/Location"))]
     station: String,
 
@@ -70,24 +71,105 @@ pub struct MeasuringPoint {
     pressure_at_see_level: Option<f32>,
 }
 
+/// A measuring station information
+#[derive(Debug, Deserialize)]
+pub struct MeasuringStation {
+    // Full name
+    #[serde(rename(deserialize = "Station"))]
+    name: String,
+
+    // Abbreviation
+    #[serde(rename(deserialize = "Abbr."))]
+    abbr: String, 
+
+    // Station Type
+    #[serde(rename(deserialize = "Station type"))]
+    station_type: String,
+
+    // Station Height 
+    #[serde(rename(deserialize = "Station height m. a. sea level"))]
+    height: u32,
+
+    // Station barometric altitude m. a. ground
+    #[serde(rename(deserialize = "Barometric altitude m. a. ground"))]
+    #[serde(deserialize_with = "csv::invalid_option")]
+    barometric_altitude: Option<u32>,
+
+    // Latitude
+    #[serde(rename(deserialize = "Latitude"))]
+    latitude: f64,
+    
+    // Longitude
+    #[serde(rename(deserialize = "Longitude"))]
+    longitude: f64,
+
+    // Canton abbreviation
+    #[serde(rename(deserialize = "Canton"))]
+    canton: String,
+
+    // Meaturements (list of measures available)
+    #[serde(rename(deserialize = "Measurements"))]
+    measurements: String,
+}
+
+// Alias to `Box<error::Error>`
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 /// Client to query the MeteoSwiss API
 pub struct MeteoSwissApiClient {
-    base_url: String,
+    stations_url: String,
+    measures_url: String,
 }
 
 impl MeteoSwissApiClient {
     const CSV_DELIMITER: u8 = b';';
+    const STATION_RESPONSE_TRAILING_LINES: usize = 3;
 
     // Constructor
-    pub fn new(base_url: String) -> MeteoSwissApiClient {
+    pub fn new(stations_url: String, measures_url: String) -> MeteoSwissApiClient {
         MeteoSwissApiClient {
-            base_url,
+            stations_url,
+            measures_url,
         }
     }
 
+    /// Method removing N trailing lines of a String
+    fn remove_trailing_lines(&self, input: String, n: usize) -> String{
+        let lines: Vec<String> = input
+            .lines()
+            .dropping_back(n)
+            .map(String::from)
+            .collect();
+        lines.join("\n")
+    }
+
+    /// Returns the network's stations
+    pub fn get_stations(&self) -> Result<Vec<MeasuringStation>> {
+        let resp = reqwest::blocking::get(&self.stations_url)?;
+        let status = resp.status();
+        if status.is_success() {
+            let txt = resp.text()?;
+            let txt = self.remove_trailing_lines(txt, MeteoSwissApiClient::STATION_RESPONSE_TRAILING_LINES);
+            
+            let mut reader = ReaderBuilder::new().delimiter(MeteoSwissApiClient::CSV_DELIMITER)
+                .from_reader(txt.as_bytes());
+            
+            let mut measuring_stations: Vec<MeasuringStation> = Vec::new();
+
+            for result in reader.deserialize::<MeasuringStation>() {
+                let result = result?;
+                // println!("{:?}", result);
+                measuring_stations.push(result);
+            }
+            return Ok(measuring_stations);
+        }
+        println!("Something bad happened: Status = {:?}", status);
+        return Err(format!("Something bad happened: Status = {:?}", status))?;
+    }
+
     /// Returns the last measures of the network's stations
-    pub fn get_last_measures(&self) -> Result<(), Box<dyn std::error::Error>> { // Result<Vec<MeasuringPoint>, Box<dyn std::error::Error>> {
-        let resp = reqwest::blocking::get(&self.base_url)?;
+    pub fn get_last_measures(&self) -> Result<Vec<MeasuringPoint>> {
+        let resp = reqwest::blocking::get(&self.measures_url)?;
         let status = resp.status();
         if status.is_success() {
             let txt = resp.text()?;
@@ -98,12 +180,12 @@ impl MeteoSwissApiClient {
 
             for result in reader.deserialize::<MeasuringPoint>() {
                 let result = result?;
-                println!("{:?}", result);
+                // println!("{:?}", result);
                 measuring_points.push(result);
             }
-            // Ok(measuring_points)
-        } 
-        println!("Oh no :( Something bad happened.. Status: {:?}", status);
-        Ok(())
+            return Ok(measuring_points);
+        }
+        println!("Something bad happened: Status = {:?}", status);
+        return Err(format!("Something bad happened: Status = {:?}", status))?;
     }
 }
