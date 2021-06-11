@@ -1,8 +1,6 @@
-
-
-use serde::Deserialize;
 use csv::ReaderBuilder;
 use itertools::Itertools;
+use serde::Deserialize;
 
 /// Measures taken on a specific station at a specific time
 #[derive(Debug, Deserialize)]
@@ -29,42 +27,42 @@ pub struct MeasuringPoint {
     #[serde(rename(deserialize = "sre000z0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     sunshine: Option<f32>,
-    
+
     // Global radiation in W/m2 (10min mean)
     #[serde(rename(deserialize = "gre000z0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     radiation: Option<f32>,
-    
+
     // Relative air humidity 2m above ground (current value)
     #[serde(rename(deserialize = "ure200s0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     humidity: Option<f32>,
-    
+
     // Dew point 2m above ground (current value)
     #[serde(rename(deserialize = "tde200s0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     dew_point: Option<f32>,
-    
+
     // Wind direction in ° (10min mean)
     #[serde(rename(deserialize = "dkl010z0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     wind_direction: Option<f32>,
-    
+
     // Wind speed in km/h (10min mean)
     #[serde(rename(deserialize = "fu3010z0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     wind_speed: Option<f32>,
-    
+
     // Wind gust (one second) peak in km/h (maximum)
     #[serde(rename(deserialize = "fu3010z1"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     wind_gust_peak: Option<f32>,
-    
+
     // Pressure at station level in hPa (current value)
     #[serde(rename(deserialize = "prestas0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
     pressure: Option<f32>,
-    
+
     // Pressure reduced at see level in hPa (current value)
     #[serde(rename(deserialize = "pp0qffs0"))]
     #[serde(deserialize_with = "csv::invalid_option")]
@@ -80,13 +78,13 @@ pub struct MeasuringStation {
 
     // Abbreviation
     #[serde(rename(deserialize = "Abbr."))]
-    abbr: String, 
+    abbr: String,
 
     // Station Type
     #[serde(rename(deserialize = "Station type"))]
     station_type: String,
 
-    // Station Height 
+    // Station Height
     #[serde(rename(deserialize = "Station height m. a. sea level"))]
     height: u32,
 
@@ -98,7 +96,7 @@ pub struct MeasuringStation {
     // Latitude
     #[serde(rename(deserialize = "Latitude"))]
     latitude: f64,
-    
+
     // Longitude
     #[serde(rename(deserialize = "Longitude"))]
     longitude: f64,
@@ -134,12 +132,8 @@ impl MeteoSwissApiClient {
     }
 
     /// Method removing N trailing lines of a String
-    fn remove_trailing_lines(&self, input: String, n: usize) -> String{
-        let lines: Vec<String> = input
-            .lines()
-            .dropping_back(n)
-            .map(String::from)
-            .collect();
+    fn remove_trailing_lines(&self, input: String, n: usize) -> String {
+        let lines: Vec<String> = input.lines().dropping_back(n).map(String::from).collect();
         lines.join("\n")
     }
 
@@ -149,11 +143,13 @@ impl MeteoSwissApiClient {
         let status = resp.status();
         if status.is_success() {
             let txt = resp.text()?;
-            let txt = self.remove_trailing_lines(txt, MeteoSwissApiClient::STATION_RESPONSE_TRAILING_LINES);
-            
-            let mut reader = ReaderBuilder::new().delimiter(MeteoSwissApiClient::CSV_DELIMITER)
+            let txt = self
+                .remove_trailing_lines(txt, MeteoSwissApiClient::STATION_RESPONSE_TRAILING_LINES);
+
+            let mut reader = ReaderBuilder::new()
+                .delimiter(MeteoSwissApiClient::CSV_DELIMITER)
                 .from_reader(txt.as_bytes());
-            
+
             let mut measuring_stations: Vec<MeasuringStation> = Vec::new();
 
             for result in reader.deserialize::<MeasuringStation>() {
@@ -173,9 +169,10 @@ impl MeteoSwissApiClient {
         let status = resp.status();
         if status.is_success() {
             let txt = resp.text()?;
-            let mut reader = ReaderBuilder::new().delimiter(MeteoSwissApiClient::CSV_DELIMITER)
+            let mut reader = ReaderBuilder::new()
+                .delimiter(MeteoSwissApiClient::CSV_DELIMITER)
                 .from_reader(txt.as_bytes());
-            
+
             let mut measuring_points: Vec<MeasuringPoint> = Vec::new();
 
             for result in reader.deserialize::<MeasuringPoint>() {

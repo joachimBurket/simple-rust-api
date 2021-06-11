@@ -1,11 +1,10 @@
 // For returning a Json response
 use rocket_contrib::json::Json;
 // DB connection and user model
-use crate::{TestDbConn, models::User};
+use crate::{models::User, TestDbConn};
 // Diesel magic
 use crate::schema::users::dsl::*;
 use diesel::{QueryDsl, RunQueryDsl};
-
 
 #[get("/")]
 pub fn index() -> &'static str {
